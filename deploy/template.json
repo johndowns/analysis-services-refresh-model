@@ -1,0 +1,162 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "analysisServicesServerName": {
+      "type": "string",
+      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "metadata": {
+        "description": "The name of the Azure Analysis Services server to create. Server name must begin with a letter, be lowercase alphanumeric, and between 3 and 63 characters in length. Server name must be unique per region."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "metadata": {
+        "description": "The name of the Azure Storage account to create, which will be used for storing metadata for the Azure Functions app. App name must be globally unique."
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "metadata": {
+        "description": "The name of the Azure Functions app to create. App name must be globally unique."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location of all resources."
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS"
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "The sku name of the Azure Analysis Services server to create. Choose from: B1, B2, D1, S0, S1, S2, S3, S4, S8, S9. Some skus are region specific. See https://docs.microsoft.com/en-us/azure/analysis-services/analysis-services-overview#availability-by-region"
+      }
+    },
+    "capacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "The total number of query replica scale-out instances. Scale-out of more than one instance is supported on selected regions only. See https://docs.microsoft.com/en-us/azure/analysis-services/analysis-services-overview#availability-by-region"
+      }
+    }
+  },
+  "variables": {
+    "appServicePlanName": "FunctionsPlan",
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+    "ownerRoleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]"
+  },
+  "resources": [
+    // Storage account for function app
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('storageAccountName')]",
+      "apiVersion": "2019-04-01",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "[parameters('storageAccountType')]"
+      }
+    },
+    // Function app
+    {
+      "name": "[parameters('functionAppName')]",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2015-08-01",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {},
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+
+    // Analysis Services instance, with firewall rule allowing Azure Function to access
+    {
+      "name": "[parameters('analysisServicesServerName')]",
+      "type": "Microsoft.AnalysisServices/servers",
+      "apiVersion": "2017-08-01",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('skuName')]",
+        "capacity": "[parameters('capacity')]"
+      },
+      "properties": {
+        "ipV4FirewallSettings": {
+          "firewallRules": [
+            /*{
+              "firewallRuleName": "AllowFromAll",
+              "rangeStart": "0.0.0.0",
+              "rangeEnd": "255.255.255.255"
+            } TODO */
+            {
+              "firewallRuleName": "AllowFromAll",
+              "rangeStart": "0.0.0.0",
+              "rangeEnd": "255.255.255.255"
+            } // TODO bad idea
+          ],
+          "enablePowerBIService": true
+        },
+        "asAdministrators": {
+          "members": [
+            // TODO doesn't let me put a managed identity in here - either principalId or clientId
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('analysisServicesServerName'), '/Microsoft.Authorization/', guid(resourceGroup().id))]",
+      "type": "Microsoft.AnalysisServices/servers/providers/roleAssignments",
+      "apiVersion": "2018-09-01-preview",
+      "properties": {
+        "roleDefinitionId": "[variables('ownerRoleDefinitionId')]", // TODO seems way too high
+        "principalId": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName'))]",
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ]
+    },
+
+    // Azure Functions app configuration
+    {
+      "name": "[concat(parameters('functionAppName'), '/appsettings')]",  
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2018-11-01",
+      "properties": {
+          "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]",
+          "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]",
+          "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]",
+          "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
+          "FUNCTIONS_EXTENSION_VERSION": "~2",
+          "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
+          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]",  
+          "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionsAppName": {
+      "type": "string",
+      "value": "[parameters('functionAppName')]"
+    }
+  }
+}
