@@ -66,6 +66,7 @@
         "name": "[parameters('storageAccountType')]"
       }
     },
+
     // Function app
     {
       "name": "[parameters('functionAppName')]",
@@ -110,7 +111,7 @@
         },
         "asAdministrators": {
           "members": [
-            // TODO doesn't let me put a managed identity in here - either principalId or clientId
+            "[concat('app:', reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId, '@', subscription().tenantId)]"
           ]
         }
       },
