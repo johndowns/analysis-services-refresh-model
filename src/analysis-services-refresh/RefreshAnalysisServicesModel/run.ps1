@@ -20,6 +20,5 @@ $requestBodyObject = @{
     Type = $refreshType
 }
 $requestBody = $requestBodyObject | ConvertTo-Json -Depth 4
-Write-Host $refreshApiUrl
 $response = Invoke-RestMethod -Uri $refreshApiUrl -Method Post -Body $requestBody -ContentType application/json -Authentication Bearer -Token $accessToken
 Write-Host "Successfully queued refresh operation '$($response.operationId)'."
