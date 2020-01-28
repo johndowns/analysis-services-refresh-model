@@ -4,10 +4,30 @@
   "parameters": {
     "analysisServicesServerName": {
       "type": "string",
-      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "defaultValue": "[concat('aas', uniqueString(resourceGroup().id))]",
       "metadata": {
         "description": "The name of the Azure Analysis Services server to create. Server name must begin with a letter, be lowercase alphanumeric, and between 3 and 63 characters in length. Server name must be unique per region."
       }
+    },
+    "analysisServicesDatabaseName": {
+      "type": "string",
+      "defaultValue": "adventureworks",
+      "metadata": {
+        "description": "The name of the Azure Analysis Services database (model) that needs to be refreshed."
+      }
+    },
+    "servicePrincipalApplicationId": {
+      "type": "string"
+    },
+    "servicePrincipalObjectId": {
+      "type": "string"
+    },
+    "servicePrincipalClientSecret": {
+      "type": "securestring"
+    },
+    "servicePrincipalTenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]"
     },
     "storageAccountName": {
       "type": "string",
@@ -74,9 +94,6 @@
       "apiVersion": "2015-08-01",
       "location": "[parameters('location')]",
       "kind": "functionapp",
-      "identity": {
-        "type": "SystemAssigned"
-      },
       "properties": {},
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
@@ -111,7 +128,7 @@
         },
         "asAdministrators": {
           "members": [
-            "[concat('app:', reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId, '@', subscription().tenantId)]"
+            "[concat('app:ea7c3646-d6af-4333-a8ac-5d48e3469fd1@', subscription().tenantId)]"
           ]
         }
       },
@@ -125,7 +142,7 @@
       "apiVersion": "2018-09-01-preview",
       "properties": {
         "roleDefinitionId": "[variables('ownerRoleDefinitionId')]", // TODO seems way too high
-        "principalId": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
+        "principalId": "[parameters('servicePrincipalObjectId')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName'))]",
@@ -146,7 +163,11 @@
           "FUNCTIONS_EXTENSION_VERSION": "~2",
           "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
           "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]",  
-          "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]"
+          "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]",
+          "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]",
+          "ServicePrincipalApplicationId": "[parameters('servicePrincipalApplicationId')]",
+          "ServicePrincipalClientSecret": "[parameters('servicePrincipalClientSecret')]",
+          "ServicePrincipalTenantId": "[parameters('servicePrincipalTenantId')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
