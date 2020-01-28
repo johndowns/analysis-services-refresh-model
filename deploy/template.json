@@ -162,6 +162,12 @@
           },
           "analysisServicesFirewallIPAddresses": {
             "value": "[split(reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2018-02-01').possibleOutboundIpAddresses, ',')]"
+          },
+          "servicePrincipalApplicationId": {
+            "value": "[parameters('servicePrincipalApplicationId')]"
+          },
+          "servicePrincipalTenantId": {
+            "value": "[parameters('servicePrincipalTenantId')]"
           }
         },
         "template": {
@@ -182,6 +188,12 @@
             },
             "analysisServicesFirewallIPAddresses": {
               "type": "array"
+            },
+            "servicePrincipalApplicationId": {
+              "type": "string"
+            },
+            "servicePrincipalTenantId": {
+              "type": "string"
             }
           },
           "variables": {
@@ -190,7 +202,7 @@
                 "name": "firewallRules",
                 "count": "[length(parameters('analysisServicesFirewallIPAddresses'))]",
                 "input": {
-                  "firewallRuleName": "[concat('Allow-', copyIndex('firewallRules'))]",
+                  "firewallRuleName": "[concat('Allow-Function-', copyIndex('firewallRules'))]",
                   "rangeStart": "[parameters('analysisServicesFirewallIPAddresses')[copyIndex('firewallRules')]]",
                   "rangeEnd": "[parameters('analysisServicesFirewallIPAddresses')[copyIndex('firewallRules')]]"
                 }
@@ -214,7 +226,7 @@
                 },
                 "asAdministrators": {
                   "members": [
-                    "[concat('app:ea7c3646-d6af-4333-a8ac-5d48e3469fd1@', subscription().tenantId)]"
+                    "[concat('app:', parameters('servicePrincipalApplicationId'), '@', parameters('servicePrincipalTenantId'))]"
                   ]
                 }
               }
