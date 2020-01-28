@@ -11,7 +11,6 @@
     },
     "analysisServicesDatabaseName": {
       "type": "string",
-      "defaultValue": "adventureworks",
       "metadata": {
         "description": "The name of the Azure Analysis Services database (model) that needs to be refreshed."
       }

@@ -2,7 +2,8 @@ param(
     $ServicePrincipalApplicationId,
     $ServicePrincipalClientSecret,
     $ResourceGroupName,
-    $ResourceGroupLocation
+    $ResourceGroupLocation,
+    $AnalysisServicesDatabaseName
 )
 
 Write-Host "Creating resource group $ResourceGroupName in location $ResourceGroupLocation."
@@ -14,14 +15,12 @@ Write-Host "Found service principal object ID $servicePrincipalObjectId."
 
 Write-Host 'Starting deployment of ARM template.'
 $templateFilePath = Join-Path $PSScriptRoot 'template.json'
-$deploymentOutputsJson = az group deployment create -j -g $ResourceGroupName --template-file $templateFilePath --parameters servicePrincipalApplicationId=$ServicePrincipalApplicationId servicePrincipalClientSecret=$ServicePrincipalClientSecret servicePrincipalObjectId=$servicePrincipalObjectId --verbose
+$deploymentOutputsJson = az group deployment create -j -g $ResourceGroupName --template-file $templateFilePath --parameters servicePrincipalApplicationId=$ServicePrincipalApplicationId servicePrincipalClientSecret=$ServicePrincipalClientSecret servicePrincipalObjectId=$servicePrincipalObjectId analysisServicesDatabaseName=$AnalysisServicesDatabaseName
 $deploymentOutputs = $deploymentOutputsJson | ConvertFrom-Json
 $functionAppName = $deploymentOutputs.properties.outputs.functionsAppName.value
 
-# TODO create sample model? - user running this needs to be an admin
-
+Write-Host "Deploying to Azure Functions app $functionAppName."
 $functionAppFolder = Join-Path $PSScriptRoot '..' 'src' 'analysis-services-refresh'
-Write-Host "Deploying to Azure Functions app $functionAppName from folder '$functionAppFolder'."
 Push-Location $functionAppFolder
 func azure functionapp publish $functionAppName
 Pop-Location
