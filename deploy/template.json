@@ -126,7 +126,10 @@
       "location": "[parameters('location')]",
       "kind": "functionapp",
       "properties": {
-        "serverFarmId": "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]"
+        "serverFarmId": "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]",
+        "siteConfig": {
+          "alwaysOn": true
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
@@ -216,7 +219,13 @@
                 }
               }
             }
-          ]
+          ],
+          "outputs": {
+            "serverFullName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]"
+            }
+          }
         }
       },
       "dependsOn": [
@@ -249,7 +258,7 @@
           "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
           "FUNCTIONS_EXTENSION_VERSION": "~2",
           "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
-          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]",
+          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.Resources/deployments', 'analysis-services-deployment')).outputs.serverFullName.value]",
           "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]",
           "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]",
           "ServicePrincipalApplicationId": "[parameters('servicePrincipalApplicationId')]",
