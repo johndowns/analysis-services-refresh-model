@@ -91,9 +91,6 @@
       "location": "[parameters('location')]",
       "apiVersion": "2018-02-01",
       "kind": "app",
-      "identity": {
-        "type": "SystemAssigned"
-      },
       "sku": {
         "name": "[parameters('appServicePlanSku')]"
       }
@@ -104,6 +101,9 @@
       "apiVersion": "2015-08-01",
       "location": "[parameters('location')]",
       "kind": "functionapp",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]",
         "siteConfig": {
