@@ -223,7 +223,7 @@
       "apiVersion": "2018-09-01-preview",
       "properties": {
         "roleDefinitionId": "[variables('ownerRoleDefinitionId')]",
-        "principalId": "[parameters('servicePrincipalObjectId')]"
+        "principalId": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
       },
       "dependsOn": [
         "[variables('analysisServicesDeploymentName')]",
@@ -245,10 +245,7 @@
           "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
           "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.Resources/deployments', variables('analysisServicesDeploymentName'))).outputs.serverFullName.value]",
           "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]",
-          "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]",
-          "ServicePrincipalApplicationId": "[parameters('servicePrincipalApplicationId')]",
-          "ServicePrincipalClientSecret": "[parameters('servicePrincipalClientSecret')]",
-          "ServicePrincipalTenantId": "[parameters('servicePrincipalTenantId')]"
+          "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
