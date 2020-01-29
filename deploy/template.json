@@ -110,7 +110,7 @@
         },
         "asAdministrators": {
           "members": [
-            // TODO doesn't let me put a managed identity in here - either principalId or clientId
+            "[concat('app:', reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId, '@', subscription().tenantId)]"
           ]
         }
       },
@@ -123,7 +123,7 @@
       "type": "Microsoft.AnalysisServices/servers/providers/roleAssignments",
       "apiVersion": "2018-09-01-preview",
       "properties": {
-        "roleDefinitionId": "[variables('ownerRoleDefinitionId')]", // TODO seems way too high
+        "roleDefinitionId": "[variables('ownerRoleDefinitionId')]",
         "principalId": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
       },
       "dependsOn": [
