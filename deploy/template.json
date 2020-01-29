@@ -4,9 +4,15 @@
   "parameters": {
     "analysisServicesServerName": {
       "type": "string",
-      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "defaultValue": "[concat('aas', uniqueString(resourceGroup().id))]",
       "metadata": {
         "description": "The name of the Azure Analysis Services server to create. Server name must begin with a letter, be lowercase alphanumeric, and between 3 and 63 characters in length. Server name must be unique per region."
+      }
+    },
+    "analysisServicesDatabaseName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Azure Analysis Services database (model) that needs to be refreshed."
       }
     },
     "storageAccountName": {
@@ -20,39 +26,50 @@
       "type": "string",
       "defaultValue": "[uniqueString(resourceGroup().id)]",
       "metadata": {
-        "description": "The name of the Azure Functions app to create. App name must be globally unique."
+        "description": "The name of the Azure Functions app to create. The app name must be globally unique."
       }
     },
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Location of all resources."
+        "description": "The location of all resources."
       }
     },
     "storageAccountType": {
       "type": "string",
-      "defaultValue": "Standard_LRS"
+      "defaultValue": "Standard_LRS",
+      "metadata": {
+        "description": "The type of Azure Storage account to create for the Azure Functions host to use."
+      }
     },
-    "skuName": {
+    "analysisServicesSkuName": {
       "type": "string",
       "defaultValue": "S0",
       "metadata": {
-        "description": "The sku name of the Azure Analysis Services server to create. Choose from: B1, B2, D1, S0, S1, S2, S3, S4, S8, S9. Some skus are region specific. See https://docs.microsoft.com/en-us/azure/analysis-services/analysis-services-overview#availability-by-region"
+        "description": "The SKU name of the Azure Analysis Services server to create."
       }
     },
-    "capacity": {
+    "analysisServicesCapacity": {
       "type": "int",
       "defaultValue": 1,
       "metadata": {
-        "description": "The total number of query replica scale-out instances. Scale-out of more than one instance is supported on selected regions only. See https://docs.microsoft.com/en-us/azure/analysis-services/analysis-services-overview#availability-by-region"
+        "description": "The total number of query replica scale-out instances to create for the Azure Analysis Services server."
+      }
+    },
+    "appServicePlanSku": {
+      "type": "string",
+      "defaultValue": "S1",
+      "metadata": {
+        "description": "The SKU name of the app service plan to create."
       }
     }
   },
   "variables": {
     "appServicePlanName": "FunctionsPlan",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-    "ownerRoleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]"
+    "ownerRoleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]",
+    "analysisServicesDeploymentName": "analysis-services-deployment"
   },
   "resources": [
     // Storage account for function app
@@ -66,52 +83,131 @@
         "name": "[parameters('storageAccountType')]"
       }
     },
+
     // Function app
+    {
+      "name": "[variables('appServicePlanName')]",
+      "type": "Microsoft.Web/serverFarms",
+      "location": "[parameters('location')]",
+      "apiVersion": "2018-02-01",
+      "kind": "app",
+      "sku": {
+        "name": "[parameters('appServicePlanSku')]"
+      }
+    },
     {
       "name": "[parameters('functionAppName')]",
       "type": "Microsoft.Web/sites",
       "apiVersion": "2015-08-01",
       "location": "[parameters('location')]",
       "kind": "functionapp",
-      "identity": {
-        "type": "SystemAssigned"
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]",
+        "siteConfig": {
+          "alwaysOn": true
+        }
       },
-      "properties": {},
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+        "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]"
       ]
     },
 
     // Analysis Services instance, with firewall rule allowing Azure Function to access
     {
-      "name": "[parameters('analysisServicesServerName')]",
-      "type": "Microsoft.AnalysisServices/servers",
-      "apiVersion": "2017-08-01",
-      "location": "[parameters('location')]",
-      "sku": {
-        "name": "[parameters('skuName')]",
-        "capacity": "[parameters('capacity')]"
-      },
+      "name": "[variables('analysisServicesDeploymentName')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-05-01",
       "properties": {
-        "ipV4FirewallSettings": {
-          "firewallRules": [
-            /*{
-              "firewallRuleName": "AllowFromAll",
-              "rangeStart": "0.0.0.0",
-              "rangeEnd": "255.255.255.255"
-            } TODO */
-            {
-              "firewallRuleName": "AllowFromAll",
-              "rangeStart": "0.0.0.0",
-              "rangeEnd": "255.255.255.255"
-            } // TODO bad idea
-          ],
-          "enablePowerBIService": true
+        "mode": "Incremental",
+        "expressionEvaluationOptions": {
+          "scope": "inner"
         },
-        "asAdministrators": {
-          "members": [
-            "[concat('app:', reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId, '@', subscription().tenantId)]"
-          ]
+        "parameters": {
+          "analysisServicesServerName": {
+            "value": "[parameters('analysisServicesServerName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "analysisServicesSkuName": {
+            "value": "[parameters('analysisServicesSkuName')]"
+          },
+          "analysisServicesCapacity": {
+            "value": "[parameters('analysisServicesCapacity')]"
+          },
+          "analysisServicesFirewallIPAddresses": {
+            "value": "[split(reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2018-02-01').possibleOutboundIpAddresses, ',')]"
+          },
+          "managedIdentityClientId": {
+            "value": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "analysisServicesServerName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "analysisServicesSkuName": {
+              "type": "string"
+            },
+            "analysisServicesCapacity": {
+              "type": "int"
+            },
+            "analysisServicesFirewallIPAddresses": {
+              "type": "array"
+            },
+            "managedIdentityClientId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "copy": [
+              {
+                "name": "firewallRules",
+                "count": "[length(parameters('analysisServicesFirewallIPAddresses'))]",
+                "input": {
+                  "firewallRuleName": "[concat('Allow-Function-', copyIndex('firewallRules'))]",
+                  "rangeStart": "[parameters('analysisServicesFirewallIPAddresses')[copyIndex('firewallRules')]]",
+                  "rangeEnd": "[parameters('analysisServicesFirewallIPAddresses')[copyIndex('firewallRules')]]"
+                }
+              }
+            ]
+          },
+          "resources": [
+            {
+              "name": "[parameters('analysisServicesServerName')]",
+              "type": "Microsoft.AnalysisServices/servers",
+              "apiVersion": "2017-08-01",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('analysisServicesSkuName')]",
+                "capacity": "[parameters('analysisServicesCapacity')]"
+              },
+              "properties": {
+                "ipV4FirewallSettings": {
+                  "firewallRules": "[variables('firewallRules')]",
+                  "enablePowerBIService": true
+                },
+                "asAdministrators": {
+                  "members": [
+                    "[concat('app:', parameters('managedIdentityClientId'), '@', subscription().tenantId)]"
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "serverFullName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]"
+            }
+          }
         }
       },
       "dependsOn": [
@@ -124,10 +220,10 @@
       "apiVersion": "2018-09-01-preview",
       "properties": {
         "roleDefinitionId": "[variables('ownerRoleDefinitionId')]",
-        "principalId": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
+        "principalId": "[parameters('servicePrincipalObjectId')]"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName'))]",
+        "[variables('analysisServicesDeploymentName')]",
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
       ]
     },
@@ -144,12 +240,16 @@
           "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
           "FUNCTIONS_EXTENSION_VERSION": "~2",
           "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
-          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName')), '2017-08-01').serverFullName]",  
-          "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]"
+          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.Resources/deployments', variables('analysisServicesDeploymentName'))).outputs.serverFullName.value]",
+          "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]",
+          "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]",
+          "ServicePrincipalApplicationId": "[parameters('servicePrincipalApplicationId')]",
+          "ServicePrincipalClientSecret": "[parameters('servicePrincipalClientSecret')]",
+          "ServicePrincipalTenantId": "[parameters('servicePrincipalTenantId')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-        "[resourceId('Microsoft.AnalysisServices/servers', parameters('analysisServicesServerName'))]"
+        "analysis-services-deployment"
       ]
     }
   ],
