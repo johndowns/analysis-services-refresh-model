@@ -93,7 +93,8 @@
   "variables": {
     "appServicePlanName": "FunctionsPlan",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-    "ownerRoleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]"
+    "ownerRoleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]",
+    "analysisServicesDeploymentName": "analysis-services-deployment"
   },
   "resources": [
     // Storage account for function app
@@ -139,7 +140,7 @@
 
     // Analysis Services instance, with firewall rule allowing Azure Function to access
     {
-      "name": "analysis-services-deployment",
+      "name": "[variables('analysisServicesDeploymentName')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
       "properties": {
@@ -253,7 +254,7 @@
         "principalId": "[parameters('servicePrincipalObjectId')]"
       },
       "dependsOn": [
-        "analysis-services-deployment",
+        "[variables('analysisServicesDeploymentName')]",
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
       ]
     },
@@ -270,7 +271,7 @@
           "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
           "FUNCTIONS_EXTENSION_VERSION": "~2",
           "FUNCTIONS_WORKER_RUNTIME": "PowerShell",
-          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.Resources/deployments', 'analysis-services-deployment')).outputs.serverFullName.value]",
+          "AnalysisServicesServerUri": "[reference(resourceId('Microsoft.Resources/deployments', variables('analysisServicesDeploymentName'))).outputs.serverFullName.value]",
           "AnalysisServicesServerName": "[parameters('analysisServicesServerName')]",
           "AnalysisServicesDatabaseName": "[parameters('analysisServicesDatabaseName')]",
           "ServicePrincipalApplicationId": "[parameters('servicePrincipalApplicationId')]",
