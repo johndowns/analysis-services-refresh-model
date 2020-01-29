@@ -170,6 +170,9 @@
             },
             "managedIdentityClientId": {
               "type": "string"
+            },
+            "managedIdentityTenantId": {
+              "type": "string"
             }
           },
           "variables": {
