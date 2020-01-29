@@ -6,7 +6,7 @@ $databaseName = $env:AnalysisServicesDatabaseName
 # Transform the Analysis Services server URI into the resource URI we need to request a token for (see https://docs.microsoft.com/en-us/azure/analysis-services/analysis-services-async-refresh#base-url).
 $analysisServicesServerUri = [System.Uri]$env:AnalysisServicesServerUri
 $refreshType = 'automatic'
-$resourceUri = "https://$($analysisServicesServerUri.Host)/" # TODO check if the .default thing fixes the issue
+$resourceUri = "https://$($analysisServicesServerUri.Host)/"
 
 # Obtain a token using the function app's managed identity.
 Write-Host "Obtaining a token to access the Analysis Services API at $resourceURI using the function app's managed identity."
