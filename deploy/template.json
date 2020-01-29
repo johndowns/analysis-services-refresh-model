@@ -144,6 +144,9 @@
           },
           "managedIdentityClientId": {
             "value": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').principalId]"
+          },
+          "managedIdentityTenantId": {
+            "value": "[reference(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/providers/Microsoft.ManagedIdentity/identities/default'), '2015-08-31-PREVIEW').tenantId]"
           }
         },
         "template": {
@@ -199,7 +202,7 @@
                 },
                 "asAdministrators": {
                   "members": [
-                    "[concat('app:', parameters('managedIdentityClientId'), '@', subscription().tenantId)]"
+                    "[concat('app:', parameters('managedIdentityClientId'), '@', parameters('managedIdentityTenantId'))]"
                   ]
                 }
               }
