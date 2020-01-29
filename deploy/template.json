@@ -280,7 +280,7 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-        "analysis-services-deployment"
+        "[variables('analysisServicesDeploymentName')]"
       ]
     }
   ],
