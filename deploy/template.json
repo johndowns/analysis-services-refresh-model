@@ -91,6 +91,9 @@
       "location": "[parameters('location')]",
       "apiVersion": "2018-02-01",
       "kind": "app",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "sku": {
         "name": "[parameters('appServicePlanSku')]"
       }
