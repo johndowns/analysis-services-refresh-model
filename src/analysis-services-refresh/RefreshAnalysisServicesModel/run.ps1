@@ -22,6 +22,3 @@ $requestBodyObject = @{
 }
 $requestBody = $requestBodyObject | ConvertTo-Json -Depth 4
 $response = try { Invoke-WebRequest -Uri $refreshApiUrl -Method Post -Body $requestBody -ContentType application/json -Authentication Bearer -Token $accessToken } catch { $_.Exception.Response }
-
-# Log the error header
-($response.Headers | Where-Object { $_.Key -eq 'x-ms-xmlaerror-extended' }).Value

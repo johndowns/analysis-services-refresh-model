@@ -2,8 +2,6 @@
 
 This sample demonstrates how to use an Azure Functions app (written using PowerShell) to trigger an Analyis Services model to refresh every night at 0000 UTC.
 
-**NOTE: This branch does not currently work. This is published to GitHub for reference purposes. Please use the master branch, which works using a service principal.**
-
 ## Instructions to run
 
 1. Run the `deploy.ps1` PowerShell script as follows:
